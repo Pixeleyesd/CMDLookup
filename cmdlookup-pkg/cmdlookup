@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
 
-# --- Configuration & APIs ---
+# ah piis
 PKG_API_PRIMARY="https://command-not-found.com"
 PKG_API_BACKUP="https://packages.debian.org/search?keywords="
 CH_API="https://cheat.sh"
 
-# --- Terminal Size & Columns ---
+# Terminal size (i dont even know if it works tho lol)
 TERM_COLS=$(tput cols 2>/dev/null || echo 80)
 HALF_COLS=$((TERM_COLS / 2 - 2))
 
@@ -26,7 +26,7 @@ show_help() {
     exit 0
 }
 
-# --- Parse Arguments ---
+# Parse Arguments
 COMMAND=""
 FILTER=""
 VERBOSE=false
@@ -60,7 +60,7 @@ if [ -z "$COMMAND" ]; then
     show_help
 fi
 
-# --- Step 1: Check Local Presence ---
+# Check Local Presence
 LOCAL_STATUS="Not installed"
 LOCAL_HELP=""
 LOCAL_DESC=""
@@ -81,7 +81,7 @@ echo "--------------------------------------------------------------------------
 echo "Status: $LOCAL_STATUS"
 echo "--------------------------------------------------------------------------------"
 
-# --- Step 2: Fetch Remote Package Data & Metadata ---
+# Fetch Remote Package Data & Metadata
 REMOTE_DESC=""
 CHEAT_RAW=""
 
@@ -115,7 +115,7 @@ if [ -z "$HTML_DATA" ] || echo "$HTML_DATA" | grep -q "404 Not Found"; then
         fi
     fi
 else
-    # Parse exact package names from primary layout
+    # Parse exact package names from primary layout for each manager
     if echo "$HTML_DATA" | grep -q "apt-get install"; then
         APT_PKG=$(echo "$HTML_DATA" | grep -A 1 "apt-get install" | clean_html | grep "apt-get install" | head -n 1 | awk '{print $3}')
         [ ! -z "$APT_PKG" ] && INSTALL_APT="sudo apt install $APT_PKG"
@@ -142,7 +142,7 @@ else
     fi
 fi
 
-# Fetch cheat-sheet raw content
+# Fetch cheatsheet raw content
 $VERBOSE && echo "[*] Fetching syntax layout from: $CH_API/$COMMAND"
 CHEAT_RAW=$(curl -sL --max-time 5 "$CH_API/$COMMAND?T" | sed '/^$/d')
 
@@ -154,7 +154,7 @@ if [ -z "$REMOTE_DESC" ] && [ ! -z "$HTML_DATA" ]; then
     REMOTE_DESC=$(echo "$HTML_DATA" | grep -oP '(?<=<title>).*?(?=</title>)' | sed "s/Install $COMMAND templates//i" | sed "s/ command not found//i")
 fi
 
-# --- Step 3: Format and Display Sections ---
+# Format and Display Sections
 
 echo "Description:"
 if [ ! -z "$LOCAL_DESC" ]; then
