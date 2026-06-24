@@ -13,4 +13,4 @@ if that doesn't work but you are running a debian or ubuntu based distro, try
 
 curl -1sLf 'https://dl.cloudsmith.io/public/pixeleyesd/cmdlookup/setup.deb.sh' | distro=ubuntu version=24.04 codename=noble sudo -E bash
 
-sudo apt install cmdlookup
+sudo apt install cmdlookup 
