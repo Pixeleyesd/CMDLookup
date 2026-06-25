@@ -5,7 +5,7 @@ PKG_API_PRIMARY="https://command-not-found.com"
 PKG_API_BACKUP="https://packages.debian.org/search?keywords="
 CH_API="https://cheat.sh"
 
-# Terminal size (i dont even know if it works tho lol)
+# terminal size (i dont even know if it works tho lol)
 TERM_COLS=$(tput cols 2>/dev/null || echo 80)
 HALF_COLS=$((TERM_COLS / 2 - 2))
 
@@ -26,7 +26,7 @@ show_help() {
     exit 0
 }
 
-# Parse Arguments
+# parse arguments
 COMMAND=""
 FILTER=""
 VERBOSE=false
@@ -60,7 +60,7 @@ if [ -z "$COMMAND" ]; then
     show_help
 fi
 
-# Check Local Presence
+# check localness
 LOCAL_STATUS="Not installed"
 LOCAL_HELP=""
 LOCAL_DESC=""
@@ -81,26 +81,32 @@ echo "--------------------------------------------------------------------------
 echo "Status: $LOCAL_STATUS"
 echo "--------------------------------------------------------------------------------"
 
-# Fetch Remote Package Data & Metadata
+# remote package data
 REMOTE_DESC=""
 CHEAT_RAW=""
 
-INSTALL_APT="sudo apt install $COMMAND"
-INSTALL_PACMAN="sudo pacman -S $COMMAND"
-INSTALL_DNF="sudo dnf install $COMMAND"
-INSTALL_ZYP="sudo zypper install $COMMAND"
-INSTALL_BREW="brew install $COMMAND"
-INSTALL_SNAP="sudo snap install $COMMAND"
+RED='\033[0;31m'
+NC='\033[0m'
+
+# check if any actual package was found
+PKG_RESOLVED=false
+
+INSTALL_APT=""
+INSTALL_PACMAN=""
+INSTALL_DNF=""
+INSTALL_ZYP=""
+INSTALL_BREW=""
+INSTALL_SNAP=""
 
 clean_html() {
     sed -e 's/<[^>]*>//g' | sed 's/^[ \t]*//;s/[ \t]*$//'
 }
 
-# Try Primary API
+# try primary ah pii
 $VERBOSE && echo "[*] Connecting to primary API: $PKG_API_PRIMARY/$COMMAND"
 HTML_DATA=$(curl -sL --max-time 5 "$PKG_API_PRIMARY/$COMMAND")
 
-# Fallback Routing if primary is dead/empty
+# fallback
 if [ -z "$HTML_DATA" ] || echo "$HTML_DATA" | grep -q "404 Not Found"; then
     $VERBOSE && echo "[!] Primary API down or 404. Switching to backup: $PKG_API_BACKUP$COMMAND"
     HTML_DATA=$(curl -sL --max-time 5 "$PKG_API_BACKUP$COMMAND")
@@ -112,37 +118,38 @@ if [ -z "$HTML_DATA" ] || echo "$HTML_DATA" | grep -q "404 Not Found"; then
             INSTALL_APT="sudo apt install $BACKUP_PKG"
             INSTALL_PACMAN="sudo pacman -S $BACKUP_PKG"
             INSTALL_DNF="sudo dnf install $BACKUP_PKG"
+            PKG_RESOLVED=true
         fi
     fi
 else
     # Parse exact package names from primary layout for each manager
     if echo "$HTML_DATA" | grep -q "apt-get install"; then
         APT_PKG=$(echo "$HTML_DATA" | grep -A 1 "apt-get install" | clean_html | grep "apt-get install" | head -n 1 | awk '{print $3}')
-        [ ! -z "$APT_PKG" ] && INSTALL_APT="sudo apt install $APT_PKG"
+        if [ ! -z "$APT_PKG" ]; then INSTALL_APT="sudo apt install $APT_PKG"; PKG_RESOLVED=true; fi
     fi
     if echo "$HTML_DATA" | grep -q "pacman -S"; then
         PAC_PKG=$(echo "$HTML_DATA" | grep -A 1 "pacman -S" | clean_html | grep "pacman" | head -n 1 | awk '{print $3}')
-        [ ! -z "$PAC_PKG" ] && INSTALL_PACMAN="sudo pacman -S $PAC_PKG"
+        if [ ! -z "$PAC_PKG" ]; then INSTALL_PACMAN="sudo pacman -S $PAC_PKG"; PKG_RESOLVED=true; fi
     fi
     if echo "$HTML_DATA" | grep -q "dnf install"; then
         DNF_PKG=$(echo "$HTML_DATA" | grep -A 1 "dnf install" | clean_html | grep "dnf" | head -n 1 | awk '{print $3}')
-        [ ! -z "$DNF_PKG" ] && INSTALL_DNF="sudo dnf install $DNF_PKG"
+        if [ ! -z "$DNF_PKG" ]; then INSTALL_DNF="sudo dnf install $DNF_PKG"; PKG_RESOLVED=true; fi
     fi
     if echo "$HTML_DATA" | grep -q "zypper install"; then
         ZYP_PKG=$(echo "$HTML_DATA" | grep -A 1 "zypper install" | clean_html | grep "zypper" | head -n 1 | awk '{print $3}')
-        [ ! -z "$ZYP_PKG" ] && INSTALL_ZYP="sudo zypper install $ZYP_PKG"
+        if [ ! -z "$ZYP_PKG" ]; then INSTALL_ZYP="sudo zypper install $ZYP_PKG"; PKG_RESOLVED=true; fi
     fi
     if echo "$HTML_DATA" | grep -q "brew install"; then
         BREW_PKG=$(echo "$HTML_DATA" | grep -A 1 "brew install" | clean_html | grep "brew" | head -n 1 | awk '{print $3}')
-        [ ! -z "$BREW_PKG" ] && INSTALL_BREW="brew install $BREW_PKG"
+        if [ ! -z "$BREW_PKG" ]; then INSTALL_BREW="brew install $BREW_PKG"; PKG_RESOLVED=true; fi
     fi
     if echo "$HTML_DATA" | grep -q "snap install"; then
         SNAP_PKG=$(echo "$HTML_DATA" | grep -A 1 "snap install" | clean_html | grep "snap" | head -n 1 | awk '{print $3}')
-        [ ! -z "$SNAP_PKG" ] && INSTALL_SNAP="sudo snap install $SNAP_PKG"
+        if [ ! -z "$SNAP_PKG" ]; then INSTALL_SNAP="sudo snap install $SNAP_PKG"; PKG_RESOLVED=true; fi
     fi
 fi
 
-# Fetch cheatsheet raw content
+# cheatsheet raw content
 $VERBOSE && echo "[*] Fetching syntax layout from: $CH_API/$COMMAND"
 CHEAT_RAW=$(curl -sL --max-time 5 "$CH_API/$COMMAND?T" | sed '/^$/d')
 
@@ -154,7 +161,7 @@ if [ -z "$REMOTE_DESC" ] && [ ! -z "$HTML_DATA" ]; then
     REMOTE_DESC=$(echo "$HTML_DATA" | grep -oP '(?<=<title>).*?(?=</title>)' | sed "s/Install $COMMAND templates//i" | sed "s/ command not found//i")
 fi
 
-# Format and Display Sections
+# format and display stuff
 
 echo "Description:"
 if [ ! -z "$LOCAL_DESC" ]; then
@@ -168,22 +175,46 @@ echo "--------------------------------------------------------------------------
 
 echo "Installation Commands:"
 if [ -z "$FILTER" ] || [ "$FILTER" = "apt" ]; then
-    echo "  Debian/Ubuntu (APT):  $INSTALL_APT"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_APT" ]; then
+        echo "  Debian/Ubuntu (APT):  $INSTALL_APT"
+    else
+        echo -e "  Debian/Ubuntu (APT):  ${RED}Invalid${NC}"
+    fi
 fi
 if [ -z "$FILTER" ] || [ "$FILTER" = "pacman" ]; then
-    echo "  Arch Linux (Pacman):  $INSTALL_PACMAN"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_PACMAN" ]; then
+        echo "  Arch Linux (Pacman):  $INSTALL_PACMAN"
+    else
+        echo -e "  Arch Linux (Pacman):  ${RED}Invalid${NC}"
+    fi
 fi
 if [ -z "$FILTER" ] || [ "$FILTER" = "dnf" ]; then
-    echo "  Fedora/RedHat (DNF):  $INSTALL_DNF"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_DNF" ]; then
+        echo "  Fedora/RedHat (DNF):  $INSTALL_DNF"
+    else
+        echo -e "  Fedora/RedHat (DNF):  ${RED}Invalid${NC}"
+    fi
 fi
 if [ -z "$FILTER" ] || [ "$FILTER" = "zypper" ]; then
-    echo "  openSUSE (Zypper):    $INSTALL_ZYP"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_ZYP" ]; then
+        echo "  openSUSE (Zypper):    $INSTALL_ZYP"
+    else
+        echo -e "  openSUSE (Zypper):    ${RED}Invalid${NC}"
+    fi
 fi
 if [ -z "$FILTER" ] || [ "$FILTER" = "brew" ]; then
-    echo "  macOS/Linux (Brew):   $INSTALL_BREW"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_BREW" ]; then
+        echo "  macOS/Linux (Brew):   $INSTALL_BREW"
+    else
+        echo -e "  macOS/Linux (Brew):   ${RED}Invalid${NC}"
+    fi
 fi
 if [ -z "$FILTER" ] || [ "$FILTER" = "snap" ]; then
-    echo "  Universal (Snap):     $INSTALL_SNAP"
+    if [ "$PKG_RESOLVED" = true ] && [ ! -z "$INSTALL_SNAP" ]; then
+        echo "  Universal (Snap):     $INSTALL_SNAP"
+    else
+        echo -e "  Universal (Snap):     ${RED}Invalid${NC}"
+    fi
 fi
 echo "--------------------------------------------------------------------------------"
 
